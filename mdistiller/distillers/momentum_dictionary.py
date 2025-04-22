@@ -57,8 +57,8 @@ class MomentumDictionary(Distiller):
           logits_student, feats_student = self.student(image)
           with torch.no_grad():
               logits_teacher, feats_teacher = self.teacher(image)
-          t_feat = feats_teacher["preact_feats"][2]
-          s_feat = feats_student["preact_feats"][2]
+          t_feat = feats_teacher["preact_feats"][4]
+          s_feat = feats_student["preact_feats"][4]
 
       logits_student = logits_student.to(torch.float32)
       loss_ce = self.ce_loss_weight * F.cross_entropy(logits_student, target)
