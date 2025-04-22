@@ -12,7 +12,8 @@ from mdistiller.engine.utils import load_checkpoint, log_msg
 from mdistiller.engine.cfg import CFG as cfg
 from mdistiller.engine.cfg import show_cfg
 from mdistiller.engine import trainer_dict
-
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 import numpy as np
 import random
