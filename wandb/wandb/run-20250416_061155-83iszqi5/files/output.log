@@ -1,0 +1,90 @@
+[36m[INFO] CONFIG:
+DATASET:
+  INPUT_SIZE: 224
+  NUM_CLASSES: 100
+  NUM_WORKERS: 2
+  PREFETCH: false
+  TEST:
+    BATCH_SIZE: 64
+  TYPE: cifar100
+DISTILLER:
+  STUDENT: resnet8x4
+  TEACHER: resnet32x4
+  TYPE: WKD
+EXPERIMENT:
+  NAME: ''
+  PROJECT: cifar100_baselines
+  SEED: 42
+  TAG: wkd_l,res32x4,res8x4
+LOG:
+  PREFIX: ''
+  SAVE_CHECKPOINT_FREQ: 100
+  TENSORBOARD_FREQ: 10
+  WANDB: true
+SOLVER:
+  BATCH_SIZE: 64
+  EPOCHS: 240
+  LR: 0.05
+  LR_DECAY_RATE: 0.1
+  LR_DECAY_STAGES:
+  - 150
+  - 180
+  - 210
+  MOMENTUM: 0.9
+  TRAINER: base
+  TYPE: SGD
+  WEIGHT_DECAY: 0.0005
+WKD:
+  COST_MATRIX: cka
+  COST_MATRIX_PATH: wkd_cost_matrix/cifar100/resnet32x4/linear_cka.pth
+  COST_MATRIX_SHARPEN: 1.0
+  EPS: 1.0e-05
+  HINT_LAYER: 4
+  INPUT_SIZE:
+  - 32
+  - 32
+  LOSS:
+    CE_WEIGHT: 1.0
+    COSINE_DECAY_EPOCH: 150
+    WKD_FEAT_WEIGHT: 0.0
+    WKD_LOGIT_WEIGHT: 600.0
+  MEAN_COV_RATIO: 2.0
+  PROJECTOR: bottleneck
+  SINKHORN:
+    ITER: 10
+    LAMBDA: 0.05
+  SPATIAL_GRID: 4
+  TEMPERATURE: 8.0
+[0m
+[36m[INFO] Loading teacher model[0m
+Using cka as cost matrix
+Sharpen  1.0
+[36m[INFO] Extra parameters of WKD: 0[0m[0m
+/content/drive/MyDrive/WKD/mdistiller/engine/trainer.py:45: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  self.scaler = GradScaler()
+  0% 0/782 [00:00<?, ?it/s]/content/drive/MyDrive/WKD/mdistiller/distillers/WKD.py:195: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast():
+[32m[TRAIN] Epoch:1| Time(data):0.000| Time(train):0.046| Loss:21.3288| Top-1:15.286| Top-5:40.870[0m: 100% 782/782 [00:43<00:00, 17.81it/s]
+[31m[EVAL] Top-1:22.190| Top-5:51.300[0m: 100% 157/157 [00:03<00:00, 40.26it/s]
+  0% 0/782 [00:00<?, ?it/s]/content/drive/MyDrive/WKD/mdistiller/distillers/WKD.py:195: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast():
+[32m[TRAIN] Epoch:2| Time(data):0.000| Time(train):0.047| Loss:18.6959| Top-1:26.864| Top-5:60.242[0m:  15% 118/782 [00:07<00:57, 11.58it/s]Traceback (most recent call last):
+  File "/content/drive/MyDrive/WKD/tools/train.py", line 186, in <module>
+    main(cfg, args.resume, args.opts)
+  File "/content/drive/MyDrive/WKD/tools/train.py", line 171, in main
+    trainer.train(resume=resume)
+  File "/content/drive/MyDrive/WKD/mdistiller/engine/trainer.py", line 105, in train
+    self.train_epoch(epoch)
+  File "/content/drive/MyDrive/WKD/mdistiller/engine/trainer.py", line 133, in train_epoch
+    msg = self.train_iter(data, epoch, train_meters, idx)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/WKD/mdistiller/engine/trainer.py", line 199, in train_iter
+    self.scaler.scale(loss).backward()
+  File "/usr/local/lib/python3.11/dist-packages/torch/_tensor.py", line 626, in backward
+    torch.autograd.backward(
+  File "/usr/local/lib/python3.11/dist-packages/torch/autograd/__init__.py", line 347, in backward
+    _engine_run_backward(
+  File "/usr/local/lib/python3.11/dist-packages/torch/autograd/graph.py", line 823, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

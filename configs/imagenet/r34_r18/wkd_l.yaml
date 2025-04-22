@@ -1,0 +1,40 @@
+EXPERIMENT:
+  NAME: ""
+  TAG: "wkd_l,res34,res18"
+  PROJECT: "imagenet_baselines"
+DATASET:
+  TYPE: "imagenet"
+  NUM_WORKERS: 8
+  NUM_CLASSES: 1000
+  TEST:
+    BATCH_SIZE: 256
+DISTILLER:
+  TYPE: "WKD"
+  TEACHER: "ResNet34"
+  STUDENT: "ResNet18"
+SOLVER:
+  BATCH_SIZE: 256
+  EPOCHS: 100
+  LR: 0.1
+  LR_DECAY_STAGES: [30, 60, 90]
+  LR_DECAY_RATE: 0.1
+  WEIGHT_DECAY: 0.0001
+  MOMENTUM: 0.9
+  TYPE: "SGD"
+WKD:
+  LOSS:
+    CE_WEIGHT: 1.0
+    WKD_LOGIT_WEIGHT: 30.0
+    WKD_FEAT_WEIGHT: 0.0
+  SINKHORN:
+    LAMBDA: 0.05
+    ITER: 10
+  COST_MATRIX: 'cka'
+  COST_MATRIX_PATH: "wkd_cost_matrix/imagenet/ResNet34/logit_linear_cka.pth"
+  COST_MATRIX_SHARPEN: 1.0
+  TEMPERATURE: 2.0
+LOG:
+  WANDB: True
+  TENSORBOARD_FREQ: 10
+  SAVE_CHECKPOINT_FREQ: 20
+

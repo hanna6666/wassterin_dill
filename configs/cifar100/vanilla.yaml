@@ -1,0 +1,19 @@
+EXPERIMENT:
+  NAME: ""
+  TAG: "vanilla,res32"
+  PROJECT: "cifar100_baselines"
+DISTILLER:
+  TYPE: "NONE"
+  TEACHER: "resnet56"
+  STUDENT: "resnet32"
+SOLVER:
+  BATCH_SIZE: 64
+  EPOCHS: 200
+  LR: 0.1
+  LR_DECAY_STAGES: [60, 120, 180]
+  LR_DECAY_RATE: 0.1
+  WEIGHT_DECAY: 0.0005
+  MOMENTUM: 0.9
+  TYPE: "SGD"
+LOG:
+  WANDB: True

@@ -1,0 +1,70 @@
+[36m[INFO] CONFIG:
+DATASET:
+  INPUT_SIZE: 224
+  NUM_CLASSES: 100
+  NUM_WORKERS: 2
+  PREFETCH: false
+  TEST:
+    BATCH_SIZE: 64
+  TYPE: cifar100
+DISTILLER:
+  STUDENT: resnet8x4
+  TEACHER: resnet32x4
+  TYPE: WKD
+EXPERIMENT:
+  NAME: ''
+  PROJECT: cifar100_baselines
+  SEED: 42
+  TAG: wkd_l,res32x4,res8x4
+LOG:
+  PREFIX: ''
+  SAVE_CHECKPOINT_FREQ: 100
+  TENSORBOARD_FREQ: 10
+  WANDB: true
+SOLVER:
+  BATCH_SIZE: 64
+  EPOCHS: 240
+  LR: 0.05
+  LR_DECAY_RATE: 0.1
+  LR_DECAY_STAGES:
+  - 150
+  - 180
+  - 210
+  MOMENTUM: 0.9
+  TRAINER: base
+  TYPE: SGD
+  WEIGHT_DECAY: 0.0005
+WKD:
+  COST_MATRIX: cka
+  COST_MATRIX_PATH: wkd_cost_matrix/cifar100/resnet32x4/linear_cka.pth
+  COST_MATRIX_SHARPEN: 1.0
+  EPS: 1.0e-05
+  HINT_LAYER: 4
+  INPUT_SIZE:
+  - 32
+  - 32
+  LOSS:
+    CE_WEIGHT: 1.0
+    COSINE_DECAY_EPOCH: 150
+    WKD_FEAT_WEIGHT: 0.0
+    WKD_LOGIT_WEIGHT: 600.0
+  MEAN_COV_RATIO: 2.0
+  PROJECTOR: bottleneck
+  SINKHORN:
+    ITER: 10
+    LAMBDA: 0.05
+  SPATIAL_GRID: 4
+  TEMPERATURE: 8.0
+[0m
+100% 169M/169M [00:03<00:00, 43.2MB/s] 
+[36m[INFO] Loading teacher model[0m
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/WKD/tools/train.py", line 186, in <module>
+    main(cfg, args.resume, args.opts)
+  File "/content/drive/MyDrive/WKD/tools/train.py", line 141, in main
+    model_teacher.load_state_dict(load_checkpoint(pretrain_model_path)["model"])
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/WKD/mdistiller/engine/utils.py", line 159, in load_checkpoint
+    with open(path, "rb") as f:
+         ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/content/drive/MyDrive/WKD/mdistiller/models/cifar/../../../download_ckpts/cifar_teachers/resnet32x4_vanilla/ckpt_epoch_240.pth'
