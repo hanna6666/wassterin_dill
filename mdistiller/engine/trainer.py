@@ -3,7 +3,7 @@ import gc
 import wandb
 from kaggle_secrets import UserSecretsClient
 user_secrets = UserSecretsClient()
-wandb_api = user_secrets.get_secret("wandb_key") #kaggle 专属
+wandb_api = user_secrets.get_secret("wandb") #kaggle 专属
 wandb.login(key=wandb_api)
 import time
 from tqdm import tqdm
