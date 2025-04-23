@@ -16,6 +16,6 @@ distiller_dict = {
     "DKD": DKD,
     "WKD": WKD,
     "SPARSEFD": SparseFD,
-    "MomentumDictionary": MomentumDictionary
+    "MomentumDictionary": MomentumDictionary,
     "AttentionMapDistiller": AttentionMapDistiller
 }
