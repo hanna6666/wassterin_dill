@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mdistiller.models import cifar_model_dict, imagenet_model_dict
 from mdistiller.distillers import distiller_dict
 from mdistiller.distillers.momentum_dictionary import MomentumDictionary 
+from mdistiller.distillers.attention_dic import AttentionMapDistiller
 from mdistiller.dataset.imagenet import *
 from mdistiller.dataset.cifar100 import *
 from mdistiller.engine.utils import load_checkpoint, log_msg
@@ -150,7 +151,7 @@ def main(cfg, resume, opts):
             # print(model_student)
         if cfg.DISTILLER.NAME == "SPARSE":
           # print('2,sparse')
-          distiller = MomentumDictionary(
+          distiller = AttentionMapDistiller(
               model_student, 
               model_teacher,
               cfg,

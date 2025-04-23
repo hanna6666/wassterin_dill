@@ -6,6 +6,7 @@ from .DKD import DKD
 from .WKD import WKD
 from .sparsefd import SparseFD
 from .momentum_dictionary import MomentumDictionary
+from .attention_dic import AttentionMapDistiller
 
 distiller_dict = {
     "NONE": Vanilla,
@@ -15,5 +16,6 @@ distiller_dict = {
     "DKD": DKD,
     "WKD": WKD,
     "SPARSEFD": SparseFD,
-    "MomentumDictionary": MomentumDictionary 
+    "MomentumDictionary": MomentumDictionary
+    "AttentionMapDistiller": AttentionMapDistiller
 }
