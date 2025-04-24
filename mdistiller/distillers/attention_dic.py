@@ -172,9 +172,9 @@ class AttentionMapDistiller(Distiller):
                 kmeans = KMeans(n_clusters=self.num_atoms, random_state=0).fit(buffer_np)
                 new_dict = torch.tensor(kmeans.cluster_centers_.T, dtype=torch.float32, device=self.device)  # [C, K]
 
-                if not self.initialized[c] or (epoch % self.refresh_epoch == 0):
+                if not self.initialized_classes[c] or (epoch % self.refresh_epoch == 0):
                     self.class_dicts[c] = new_dict
-                    self.initialized[c] = True
+                    self.initialized_classes[c] = True
                 else:
                     self.class_dicts[c] = self.momentum * self.class_dicts[c] + (1 - self.momentum) * new_dict
 
