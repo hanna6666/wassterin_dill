@@ -139,12 +139,12 @@ class AttentionMapDistiller(Distiller):
         gap_feats = feats.mean(dim=(2, 3))  # [B, C]
         probs = F.softmax(logits, dim=1)  # [B, num_classes]
         confs, preds = probs.max(dim=1)   # [B]
-        feat_i = gap_feats[i].detach().cpu().numpy()
 
         for i in range(B):
             label_i = labels[i].item()
             pred_i = preds[i].item()
             conf_i = confs[i].item()
+            feat_i = gap_feats[i].detach().cpu().numpy()
 
             # 置信度高且预测正确的样本
             if warmup or conf_i >= self.conf_thresh and label_i == pred_i:
