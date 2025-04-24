@@ -7,6 +7,9 @@ DISTILLER:
   TYPE: "WKD"
   TEACHER: "resnet32x4"
   STUDENT: "resnet8x4"
+  DICT_PATH: "path/to/your/f2pre_dict.pt"
+  LOSS_WEIGHT: 5.0
+  NAME: "SPARSE"
 SOLVER:
   BATCH_SIZE: 64
   EPOCHS: 240
@@ -20,14 +23,15 @@ WKD:
   INPUT_SIZE: (32, 32)
   LOSS:
     CE_WEIGHT: 1.0
-    WKD_LOGIT_WEIGHT: 600.0
+    WKD_LOGIT_WEIGHT: 0.0
     WKD_FEAT_WEIGHT: 0.0
     COSINE_DECAY_EPOCH: 150
+    FEAT_WEIGHT: 100.0
   SINKHORN:
     LAMBDA: 0.05
     ITER: 10
   COST_MATRIX: 'cka'
-  COST_MATRIX_PATH: "/kaggle/working/wassterin_dill/wkd-pth/wkd_cost_matrix/cifar100/resnet32x4/linear_cka.pth"
+  COST_MATRIX_PATH: "wkd_cost_matrix/cifar100/resnet32x4/linear_cka.pth"
   COST_MATRIX_SHARPEN: 1.0
   TEMPERATURE: 8.0
 LOG:
