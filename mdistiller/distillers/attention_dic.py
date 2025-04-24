@@ -60,7 +60,7 @@ def wkd_logit_loss_with_speration(logits_student, logits_teacher, gt_label, temp
 
 
 class AttentionMapDistiller(Distiller):
-    def __init__(self, student, teacher, cfg, num_classes=100,warmup_steps=10, refresh_epoch=50,confidence_thresh=0.8,num_atoms=100, momentum=0.9, device='cuda'):
+    def __init__(self, student, teacher, cfg, max_buffer_size=100,num_classes=100,warmup_steps=10, refresh_epoch=50,confidence_thresh=0.8,num_atoms=100, momentum=0.9, device='cuda'):
         super(AttentionMapDistiller, self).__init__(student, teacher)
         self.cfg = cfg
         self.num_atoms = num_atoms
@@ -79,6 +79,7 @@ class AttentionMapDistiller(Distiller):
         self.refresh_epoch = refresh_epoch
         self.warmup_steps = warmup_steps
         self.num_classes = num_classes
+        self.max_buffer_size = max_buffer_size
 
         self.enable_wkdl = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT > 0
         if self.enable_wkdl:
