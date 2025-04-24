@@ -28,6 +28,35 @@ def wkd_logit_loss(logits_student, logits_teacher, temperature, cost_matrix, sin
     ws_distance = (flow * cost_matrix).sum(-1).sum(-1).mean()
     return ws_distance
 
+def wkd_logit_loss_with_speration(logits_student, logits_teacher, gt_label, temperature, gamma, cost_matrix=None, sinkhorn_lambda=0.05, sinkhorn_iter=10):
+        
+    if len(gt_label.size()) > 1:
+        label = torch.max(gt_label, dim=1, keepdim=True)[1]
+    else:
+        label = gt_label.view(len(gt_label), 1)
+
+    # N*class
+    N, c = logits_student.shape
+    s_i = F.log_softmax(logits_student, dim=1)
+    t_i = F.softmax(logits_teacher, dim=1)
+    s_t = torch.gather(s_i, 1, label)
+    t_t = torch.gather(t_i, 1, label).detach()
+    loss_t = - (t_t * s_t).mean()
+
+    mask = torch.ones_like(logits_student).scatter_(1, label, 0).bool()
+    logits_student = logits_student[mask].reshape(N, -1)
+    logits_teacher = logits_teacher[mask].reshape(N, -1)
+    
+    cost_matrix = cost_matrix.repeat(N, 1, 1)
+    gd_mask = mask.unsqueeze(1) * mask.unsqueeze(2)
+    cost_matrix = cost_matrix[gd_mask].reshape(N, c-1, c-1)
+        
+    # N*class
+    loss_wkd = wkd_logit_loss(logits_student, logits_teacher, temperature, cost_matrix, sinkhorn_lambda, sinkhorn_iter)
+
+    return loss_t + gamma * loss_wkd
+
+
 class AttentionMapDistiller(Distiller):
     def __init__(self, student, teacher, cfg, num_atoms=100, momentum=0.9, device='cuda'):
         super(AttentionMapDistiller, self).__init__(student, teacher)
@@ -41,27 +70,30 @@ class AttentionMapDistiller(Distiller):
         self.teacher = self.teacher.to(self.device).eval()
         self.ce_loss_weight = cfg.WKD.LOSS.CE_WEIGHT
         self.attn_loss_weight = cfg.WKD.LOSS.FEAT_WEIGHT  # 用于 attention loss 的权重
+        self.wkd_logit_loss_weight = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT
 
         self.enable_wkdl = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT > 0
         if self.enable_wkdl:
-            self.wkd_logit_loss_weight = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT
             self.temperature = cfg.WKD.TEMPERATURE
             self.sinkhorn_lambda = cfg.WKD.SINKHORN.LAMBDA
             self.sinkhorn_iter = cfg.WKD.SINKHORN.ITER
 
             if cfg.WKD.COST_MATRIX == "fc":
-                print("Using fc weight of teacher model as category prototype")
-                proto = self.teacher.fc.weight
-                sim = F.normalize(proto, p=2, dim=-1) @ F.normalize(proto, p=2, dim=-1).T
-                self.cost_matrix = 1 - sim
+              print("Using fc weight of teacher model as category prototype")
+              self.prototype = self.teacher.fc.weight
+              # caluate cosine similarity
+              proto_normed = F.normalize(self.prototype, p=2, dim=-1)
+              cosine_sim = proto_normed.matmul(proto_normed.transpose(-1, -2))
+              self.dist = 1 - cosine_sim
             else:
-                print("Using external cost matrix")
-                self.cost_matrix = torch.load(cfg.WKD.COST_MATRIX_PATH).to(self.device).detach()
-
+              print("Using "+cfg.WKD.COST_MATRIX+" as cost matrix")
+              path_gd = cfg.WKD.COST_MATRIX_PATH
+              self.dist = torch.load(path_gd).cuda().detach()
+              
             if cfg.WKD.COST_MATRIX_SHARPEN != 0:
-                print("Sharpening cost matrix")
-                sim = torch.exp(-cfg.WKD.COST_MATRIX_SHARPEN * self.cost_matrix)
-                self.cost_matrix = 1 - sim
+              print("Sharpen ", cfg.WKD.COST_MATRIX_SHARPEN)
+              sim = torch.exp(-cfg.WKD.COST_MATRIX_SHARPEN*self.dist)
+              self.dist = 1 - sim
 
     def get_extra_parameters(self):
         return 0
@@ -116,14 +148,18 @@ class AttentionMapDistiller(Distiller):
         D_momentum = self.update(t_feat)
         loss_attn = self.attn_loss_weight * self.attention_align_loss(t_feat.float(), s_feat.float(), D_momentum)
 
-        if self.enable_wkdl:
-            loss_logit = self.wkd_logit_loss_weight * wkd_logit_loss(
-                logits_student, logits_teacher, self.temperature, self.cost_matrix,
-                self.sinkhorn_lambda, self.sinkhorn_iter)
+        decay_start_epoch = self.loss_cosine_decay_epoch
+        if kwargs['epoch'] > decay_start_epoch:
+          # cosine decay
+            self.wkd_logit_loss_weight_1 = 0.5*self.wkd_logit_loss_weight*(1+math.cos((kwargs['epoch']-decay_start_epoch)/(self.cfg.SOLVER.EPOCHS-decay_start_epoch)*math.pi))
+          
         else:
-            loss_logit = torch.tensor(0.0, device=self.device)
+            self.wkd_logit_loss_weight_1 = self.wkd_logit_loss_weight
+        if self.enable_wkdl:
+            logits_teacher = logits_teacher.to(torch.float32)
+            loss_wkd_logit = wkd_logit_loss_with_speration(logits_student, logits_teacher, target, self.temperature, self.wkd_logit_loss_weight_1, self.dist, self.sinkhorn_lambda, self.sinkhorn_iter)
 
-        total_loss = loss_attn + loss_logit
+        total_loss = loss_attn + loss_wkd_logit
 
         losses_dict = {
             "loss_ce": loss_ce,
