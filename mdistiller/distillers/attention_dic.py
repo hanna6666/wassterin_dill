@@ -5,6 +5,7 @@ import math
 from ._base import Distiller
 from ._common import *
 import numpy as np
+from collections import defaultdict
 
 def sinkhorn(w1, w2, cost, reg=0.05, max_iter=10):
     bs, dim = w1.shape
@@ -59,7 +60,7 @@ def wkd_logit_loss_with_speration(logits_student, logits_teacher, gt_label, temp
 
 
 class AttentionMapDistiller(Distiller):
-    def __init__(self, student, teacher, cfg, warmup_steps=10, refresh_epoch=50,confidence_thresh=0.8,num_atoms=100, momentum=0.9, device='cuda'):
+    def __init__(self, student, teacher, cfg, num_classes=100,warmup_steps=10, refresh_epoch=50,confidence_thresh=0.8,num_atoms=100, momentum=0.9, device='cuda'):
         super(AttentionMapDistiller, self).__init__(student, teacher)
         self.cfg = cfg
         self.num_atoms = num_atoms
@@ -77,6 +78,7 @@ class AttentionMapDistiller(Distiller):
         self.step = 0
         self.refresh_epoch = refresh_epoch
         self.warmup_steps = warmup_steps
+        self.num_classes = num_classes
 
         self.enable_wkdl = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT > 0
         if self.enable_wkdl:
@@ -132,6 +134,10 @@ class AttentionMapDistiller(Distiller):
         """
         if not hasattr(self, "fallback") or self.fallback is None:
             self.fallback = torch.randn(feats.shape[1], self.num_atoms, device=self.device)
+        if not hasattr(self, "class_dicts"):
+            self.class_dicts = {c: torch.zeros(C, self.num_atoms, device=self.device) for c in range(self.num_classes)}
+            self.initialized_classes = [False] * self.num_classes
+            self.class_buffers = defaultdict(list)
 
         self.step += 1
         warmup = self.step <= self.warmup_steps
