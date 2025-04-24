@@ -5,6 +5,29 @@ import math
 from ._base import Distiller
 from ._common import *
 
+def sinkhorn(w1, w2, cost, reg=0.05, max_iter=10):
+    bs, dim = w1.shape
+    w1 = w1.unsqueeze(-1)
+    w2 = w2.unsqueeze(-1)
+
+    u = 1 / dim * torch.ones_like(w1, device=w1.device, dtype=w1.dtype)
+    K = torch.exp(-cost / reg)
+    Kt = K.transpose(2, 1)
+    for _ in range(max_iter):
+        v = w2 / (torch.bmm(Kt, u) + 1e-8)
+        u = w1 / (torch.bmm(K, v) + 1e-8)
+    flow = u.reshape(bs, -1, 1) * K * v.reshape(bs, 1, -1)
+    return flow
+
+def wkd_logit_loss(logits_student, logits_teacher, temperature, cost_matrix, sinkhorn_lambda=0.05, sinkhorn_iter=30):
+    pred_student = F.softmax(logits_student / temperature, dim=-1).to(torch.float32)
+    pred_teacher = F.softmax(logits_teacher / temperature, dim=-1).to(torch.float32)
+    cost_matrix = F.relu(cost_matrix) + 1e-8
+    cost_matrix = cost_matrix.to(pred_student.device)
+    flow = sinkhorn(pred_student, pred_teacher, cost_matrix, reg=sinkhorn_lambda, max_iter=sinkhorn_iter)
+    ws_distance = (flow * cost_matrix).sum(-1).sum(-1).mean()
+    return ws_distance
+
 class AttentionMapDistiller(Distiller):
     def __init__(self, student, teacher, cfg, num_atoms=100, momentum=0.9, device='cuda'):
         super(AttentionMapDistiller, self).__init__(student, teacher)
@@ -18,6 +41,27 @@ class AttentionMapDistiller(Distiller):
         self.teacher = self.teacher.to(self.device).eval()
         self.ce_loss_weight = cfg.WKD.LOSS.CE_WEIGHT
         self.attn_loss_weight = cfg.WKD.LOSS.FEAT_WEIGHT  # 用于 attention loss 的权重
+
+        self.enable_wkdl = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT > 0
+        if self.enable_wkdl:
+            self.wkd_logit_loss_weight = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT
+            self.temperature = cfg.WKD.TEMPERATURE
+            self.sinkhorn_lambda = cfg.WKD.SINKHORN.LAMBDA
+            self.sinkhorn_iter = cfg.WKD.SINKHORN.ITER
+
+            if cfg.WKD.COST_MATRIX == "fc":
+                print("Using fc weight of teacher model as category prototype")
+                proto = self.teacher.fc.weight
+                sim = F.normalize(proto, p=2, dim=-1) @ F.normalize(proto, p=2, dim=-1).T
+                self.cost_matrix = 1 - sim
+            else:
+                print("Using external cost matrix")
+                self.cost_matrix = torch.load(cfg.WKD.COST_MATRIX_PATH).to(self.device).detach()
+
+            if cfg.WKD.COST_MATRIX_SHARPEN != 0:
+                print("Sharpening cost matrix")
+                sim = torch.exp(-cfg.WKD.COST_MATRIX_SHARPEN * self.cost_matrix)
+                self.cost_matrix = 1 - sim
 
     def get_extra_parameters(self):
         return 0
@@ -72,9 +116,19 @@ class AttentionMapDistiller(Distiller):
         D_momentum = self.update(t_feat)
         loss_attn = self.attn_loss_weight * self.attention_align_loss(t_feat.float(), s_feat.float(), D_momentum)
 
+        if self.enable_wkdl:
+            loss_logit = self.wkd_logit_loss_weight * wkd_logit_loss(
+                logits_student, logits_teacher, self.temperature, self.cost_matrix,
+                self.sinkhorn_lambda, self.sinkhorn_iter)
+        else:
+            loss_logit = torch.tensor(0.0, device=self.device)
+
+        total_loss = loss_attn + loss_logit
+
         losses_dict = {
             "loss_ce": loss_ce,
-            "loss_kd": loss_attn,
+            # "loss_kd": loss_attn,
+            "loss_kd": total_loss,
         }
 
         return logits_student, losses_dict
