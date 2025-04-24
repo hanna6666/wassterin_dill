@@ -168,7 +168,7 @@ class AttentionMapDistiller(Distiller):
                     buffer = sorted_buffer[:self.max_buffer_size]
                     self.class_buffers[c] = buffer
                 # 多样性通过 KMeans 聚类自动获得
-                buffer_np = np.stack(buffer, axis=0)
+                buffer_np = np.stack([x['feat'] for x in buffer], axis=0) 
                 kmeans = KMeans(n_clusters=self.num_atoms, random_state=0).fit(buffer_np)
                 new_dict = torch.tensor(kmeans.cluster_centers_.T, dtype=torch.float32, device=self.device)  # [C, K]
 
