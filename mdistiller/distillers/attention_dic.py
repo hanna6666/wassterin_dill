@@ -135,7 +135,7 @@ class AttentionMapDistiller(Distiller):
         if not hasattr(self, "fallback") or self.fallback is None:
             self.fallback = torch.randn(feats.shape[1], self.num_atoms, device=self.device)
         if not hasattr(self, "class_dicts"):
-            self.class_dicts = {c: torch.zeros(C, self.num_atoms, device=self.device) for c in range(self.num_classes)}
+            self.class_dicts = {c: torch.zeros(feats.shape[1], self.num_atoms, device=self.device) for c in range(self.num_classes)}
             self.initialized_classes = [False] * self.num_classes
             self.class_buffers = defaultdict(list)
 
