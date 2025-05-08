@@ -80,6 +80,7 @@ class AttentionMapDistiller(Distiller):
         self.warmup_steps = warmup_steps
         self.num_classes = num_classes
         self.max_buffer_size = max_buffer_size
+        self.fallback_layer = dict()
 
         self.enable_wkdl = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT > 0
         if self.enable_wkdl:
@@ -123,7 +124,7 @@ class AttentionMapDistiller(Distiller):
 
     #     return self.dictionary
 
-    def update(self, feats, labels, logits, epoch):
+    def update(self, feats, labels, logits,layer, epoch):
         """
         Update class-wise dictionaries with high-confidence teacher features.
 
@@ -133,19 +134,30 @@ class AttentionMapDistiller(Distiller):
             logits: [B, num_classes] teacher logits
             epoch: int, current epoch number
         """
-        if not hasattr(self, "fallback") or self.fallback is None:
-            self.fallback = torch.randn(feats.shape[1], self.num_atoms, device=self.device)
-        if not hasattr(self, "class_dicts"):
-            self.class_dicts = {c: torch.zeros(feats.shape[1], self.num_atoms, device=self.device) for c in range(self.num_classes)}
-            self.initialized_classes = [False] * self.num_classes
-            self.class_buffers = defaultdict(list)
+        C = feats.shape[1]
+        if layer not in self.fallback_layer or self.fallback_layer[layer].shape[0] != C:
+            print(f"[Init] fallback for layer {layer}: channel={C}")
+            self.fallback_layer[layer] = torch.randn(C, self.num_atoms, device=self.device)
+        if not hasattr(self, "class_dicts_layer"):
+            self.class_dicts_layer = dict()
+            self.class_buffers_layer = dict()
+            self.initialized_classes_layer = dict()
 
-        self.step += 1
-        warmup = self.step <= self.warmup_steps
-        B, C, H, W = feats.shape
+        if layer not in self.class_dicts_layer:
+            self.class_dicts_layer[layer] = {c: torch.zeros(C, self.num_atoms, device=self.device) for c in range(self.num_classes)}
+            self.class_buffers_layer[layer] = defaultdict(list)
+            self.initialized_classes_layer[layer] = [False] * self.num_classes
+
+        step_key = f"step_{layer}"
+        if not hasattr(self, step_key):
+            setattr(self, step_key, 0)
+        setattr(self, step_key, getattr(self, step_key) + 1)
+        warmup = getattr(self, step_key) <= self.warmup_steps
+
+        B = feats.shape[0]
         gap_feats = feats.mean(dim=(2, 3))  # [B, C]
-        probs = F.softmax(logits, dim=1)  # [B, num_classes]
-        confs, preds = probs.max(dim=1)   # [B]
+        probs = F.softmax(logits, dim=1)
+        confs, preds = probs.max(dim=1)
 
         for i in range(B):
             label_i = labels[i].item()
@@ -153,44 +165,39 @@ class AttentionMapDistiller(Distiller):
             conf_i = confs[i].item()
             feat_i = gap_feats[i].detach().cpu().numpy()
 
-            # 置信度高且预测正确的样本
-            if warmup or conf_i >= self.conf_thresh and label_i == pred_i:
-                self.class_buffers[label_i].append({'feat': feat_i, 'conf': conf_i})
-            # 限制 buffer 大小
-                if len(self.class_buffers[label_i]) > self.max_buffer_size:
-                    self.class_buffers[label_i].pop(0)
+            if warmup or (conf_i >= self.conf_thresh and label_i == pred_i):
+                self.class_buffers_layer[layer][label_i].append({'feat': feat_i, 'conf': conf_i})
+                if len(self.class_buffers_layer[layer][label_i]) > self.max_buffer_size:
+                    self.class_buffers_layer[layer][label_i].pop(0)
 
         for c in range(self.num_classes):
-            buffer = self.class_buffers[c]
+            buffer = self.class_buffers_layer[layer][c]
             if len(buffer) >= self.num_atoms:
                 if not warmup:
                     sorted_buffer = sorted(buffer, key=lambda x: x['conf'], reverse=True)
                     buffer = sorted_buffer[:self.max_buffer_size]
-                    self.class_buffers[c] = buffer
-                # 多样性通过 KMeans 聚类自动获得
-                buffer_np = np.stack([x['feat'] for x in buffer], axis=0) 
+                    self.class_buffers_layer[layer][c] = buffer
+                buffer_np = np.stack([x['feat'] for x in buffer], axis=0)
                 kmeans = KMeans(n_clusters=self.num_atoms, random_state=0).fit(buffer_np)
-                new_dict = torch.tensor(kmeans.cluster_centers_.T, dtype=torch.float32, device=self.device)  # [C, K]
+                new_dict = torch.tensor(kmeans.cluster_centers_.T, dtype=torch.float32, device=self.device)
 
-                if not self.initialized_classes[c] or (epoch % self.refresh_epoch == 0):
-                    self.class_dicts[c] = new_dict
-                    self.initialized_classes[c] = True
+                if not self.initialized_classes_layer[layer][c] or (epoch % self.refresh_epoch == 0):
+                    self.class_dicts_layer[layer][c] = new_dict
+                    self.initialized_classes_layer[layer][c] = True
                 else:
-                    self.class_dicts[c] = self.momentum * self.class_dicts[c] + (1 - self.momentum) * new_dict
+                    self.class_dicts_layer[layer][c] = self.momentum * self.class_dicts_layer[layer][c] + (1 - self.momentum) * new_dict
 
-                self.class_buffers[c].clear()
+                self.class_buffers_layer[layer][c].clear()
 
+        # gather valid dicts
         unique_labels = torch.unique(labels)
-        valid_dicts = [self.class_dicts[c.item()] for c in unique_labels if self.initialized_classes[c.item()]]
+        valid_dicts = [self.class_dicts_layer[layer][c.item()] for c in unique_labels if self.initialized_classes_layer[layer][c.item()]]
 
         if valid_dicts:
-            D_batch = torch.cat(valid_dicts, dim=1)  # [C, K × n]
-            self.fallback = D_batch
+            D_batch = torch.cat(valid_dicts, dim=1)
+            self.fallback_layer[layer] = D_batch
         else:
-            D_batch = self.fallback
-
-        print(f" Dictionary D shape: {D_batch.shape}, from features: {feats.shape}")
-
+            D_batch = self.fallback_layer[layer]
 
         return D_batch
 
