@@ -242,16 +242,16 @@ class AttentionMapDistiller(Distiller):
 
         # 更新字典 + 注意力对齐 loss
         # D_momentum = self.update(t_feat)
-        D_momentum_3 = self.update(t_feat_3, target, logits_teacher, kwargs['epoch'])
+        D_momentum_3 = self.update(t_feat_3, target, logits_teacher,3, kwargs['epoch'])
         loss_attn_3 = self.attn_loss_weight * self.attention_align_loss(t_feat_3.float(), s_feat_3.float(), D_momentum_3)
 
-        D_momentum_2 = self.update(t_feat_2, target, logits_teacher, kwargs['epoch'])
+        D_momentum_2 = self.update(t_feat_2, target, logits_teacher,2, kwargs['epoch'])
         loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_momentum_2)
 
-        D_momentum_1 = self.update(t_feat_1, target, logits_teacher, kwargs['epoch'])
+        D_momentum_1 = self.update(t_feat_1, target, logits_teacher,1, kwargs['epoch'])
         loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_momentum_1)
 
-        D_momentum_0 = self.update(t_feat_0, target, logits_teacher, kwargs['epoch'])
+        D_momentum_0 = self.update(t_feat_0, target, logits_teacher,0, kwargs['epoch'])
         loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_momentum_0)
 
         decay_start_epoch = self.loss_cosine_decay_epoch
