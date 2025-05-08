@@ -356,7 +356,7 @@ class AttentionMapDistiller(Distiller):
             logits_teacher = logits_teacher.to(torch.float32)
             loss_wkd_logit = wkd_logit_loss_with_speration(logits_student, logits_teacher, target, self.temperature, self.wkd_logit_loss_weight_1, self.dist, self.sinkhorn_lambda, self.sinkhorn_iter)
 
-        total_loss = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0 + loss_wkd_logit
+        # total_loss = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0 + loss_wkd_logit
 
         losses_dict = {
             "loss_ce": loss_ce,
