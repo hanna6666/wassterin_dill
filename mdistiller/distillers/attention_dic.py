@@ -60,7 +60,7 @@ def wkd_logit_loss_with_speration(logits_student, logits_teacher, gt_label, temp
 
 
 class AttentionMapDistiller(Distiller):
-    def __init__(self, student, teacher, cfg, max_buffer_size=1000,num_classes=100,warmup_steps=10, refresh_epoch=50,confidence_thresh=0.8,num_atoms=100, momentum=0.9, device='cuda'):
+    def __init__(self, student, teacher, cfg, max_buffer_size=3000,num_classes=100,warmup_steps=100, refresh_epoch=50,confidence_thresh=0.7,num_atoms=100, momentum=0.9, device='cuda'):
         super(AttentionMapDistiller, self).__init__(student, teacher)
         self.cfg = cfg
         self.num_atoms = num_atoms
@@ -124,82 +124,136 @@ class AttentionMapDistiller(Distiller):
 
     #     return self.dictionary
 
-    def update(self, feats, labels, logits,layer, epoch):
-        """
-        Update class-wise dictionaries with high-confidence teacher features.
+    # def update(self, feats, labels, logits,layer, epoch):
+    #     """
+    #     Update class-wise dictionaries with high-confidence teacher features.
 
+    #     Args:
+    #         feats: [B, C, H, W] feature maps from teacher model
+    #         labels: [B] class labels
+    #         logits: [B, num_classes] teacher logits
+    #         epoch: int, current epoch number
+    #     """
+    #     C = feats.shape[1]
+    #     if layer not in self.fallback_layer or self.fallback_layer[layer].shape[0] != C:
+    #         print(f"[Init] fallback for layer {layer}: channel={C}")
+    #         self.fallback_layer[layer] = torch.randn(C, self.num_atoms, device=self.device)
+    #     if not hasattr(self, "class_dicts_layer"):
+    #         self.class_dicts_layer = dict()
+    #         self.class_buffers_layer = dict()
+    #         self.initialized_classes_layer = dict()
+
+    #     if layer not in self.class_dicts_layer:
+    #         self.class_dicts_layer[layer] = {c: torch.zeros(C, self.num_atoms, device=self.device) for c in range(self.num_classes)}
+    #         self.class_buffers_layer[layer] = defaultdict(list)
+    #         self.initialized_classes_layer[layer] = [False] * self.num_classes
+
+    #     step_key = f"step_{layer}"
+    #     if not hasattr(self, step_key):
+    #         setattr(self, step_key, 0)
+    #     setattr(self, step_key, getattr(self, step_key) + 1)
+    #     warmup = getattr(self, step_key) <= self.warmup_steps
+
+    #     B = feats.shape[0]
+    #     gap_feats = feats.mean(dim=(2, 3))  # [B, C]
+    #     probs = F.softmax(logits, dim=1)
+    #     confs, preds = probs.max(dim=1)
+
+    #     for i in range(B):
+    #         label_i = labels[i].item()
+    #         pred_i = preds[i].item()
+    #         conf_i = confs[i].item()
+    #         feat_i = gap_feats[i].detach().cpu().numpy()
+
+    #         if warmup or (conf_i >= self.conf_thresh and label_i == pred_i):
+    #             self.class_buffers_layer[layer][label_i].append({'feat': feat_i, 'conf': conf_i})
+    #             if len(self.class_buffers_layer[layer][label_i]) > self.max_buffer_size:
+    #                 self.class_buffers_layer[layer][label_i].pop(0)
+
+    #     for c in range(self.num_classes):
+    #         buffer = self.class_buffers_layer[layer][c]
+    #         if len(buffer) >= self.num_atoms:
+    #             if not warmup:
+    #                 sorted_buffer = sorted(buffer, key=lambda x: x['conf'], reverse=True)
+    #                 buffer = sorted_buffer[:self.max_buffer_size]
+    #                 self.class_buffers_layer[layer][c] = buffer
+    #             buffer_np = np.stack([x['feat'] for x in buffer], axis=0)
+    #             kmeans = KMeans(n_clusters=self.num_atoms, random_state=0).fit(buffer_np)
+    #             new_dict = torch.tensor(kmeans.cluster_centers_.T, dtype=torch.float32, device=self.device)
+
+    #             if not self.initialized_classes_layer[layer][c] or (epoch % self.refresh_epoch == 0):
+    #                 self.class_dicts_layer[layer][c] = new_dict
+    #                 self.initialized_classes_layer[layer][c] = True
+    #             else:
+    #                 self.class_dicts_layer[layer][c] = self.momentum * self.class_dicts_layer[layer][c] + (1 - self.momentum) * new_dict
+
+    #             self.class_buffers_layer[layer][c].clear()
+
+    #     # gather valid dicts
+    #     unique_labels = torch.unique(labels)
+    #     valid_dicts = [self.class_dicts_layer[layer][c.item()] for c in unique_labels if self.initialized_classes_layer[layer][c.item()]]
+
+    #     if valid_dicts:
+    #         D_batch = torch.cat(valid_dicts, dim=1)
+    #         self.fallback_layer[layer] = D_batch
+    #     else:
+    #         D_batch = self.fallback_layer[layer]
+
+    #     return D_batch
+
+    # def update(self, batch_feats):
+    #   """
+    #   batch_feats: [B, C, H, W] from teacher
+    #   """
+    #   feats = batch_feats.mean(dim=(2, 3)).cpu().numpy()  # [B, C]
+    #   kmeans = KMeans(n_clusters=min(self.num_atoms, len(feats)), random_state=0).fit(feats)
+    #   D_batch = torch.tensor(kmeans.cluster_centers_.T).float().to(self.device)  # [C, K]
+
+    #   if not self.initialized:
+    #       self.dictionary = D_batch
+    #       self.initialized = True
+    #   else:
+    #       self.dictionary = self.momentum * self.dictionary + (1 - self.momentum) * D_batch
+
+    #   return self.dictionary
+    def update(self, batch_feats, layer):
+        """
         Args:
-            feats: [B, C, H, W] feature maps from teacher model
-            labels: [B] class labels
-            logits: [B, num_classes] teacher logits
-            epoch: int, current epoch number
+            batch_feats: [B, C, H, W] from teacher
+            layer: int or str, used as dictionary key
+        Returns:
+            D_batch: Tensor of shape [C, K]
         """
-        C = feats.shape[1]
-        if layer not in self.fallback_layer or self.fallback_layer[layer].shape[0] != C:
-            print(f"[Init] fallback for layer {layer}: channel={C}")
-            self.fallback_layer[layer] = torch.randn(C, self.num_atoms, device=self.device)
-        if not hasattr(self, "class_dicts_layer"):
-            self.class_dicts_layer = dict()
-            self.class_buffers_layer = dict()
-            self.initialized_classes_layer = dict()
+        B, C, H, W = batch_feats.shape
+        feats = batch_feats.mean(dim=(2, 3)).cpu().numpy()  # [B, C]
 
-        if layer not in self.class_dicts_layer:
-            self.class_dicts_layer[layer] = {c: torch.zeros(C, self.num_atoms, device=self.device) for c in range(self.num_classes)}
-            self.class_buffers_layer[layer] = defaultdict(list)
-            self.initialized_classes_layer[layer] = [False] * self.num_classes
+        # 去除重复样本
+        feats = np.unique(feats, axis=0)
+        n_clusters = min(self.num_atoms, len(feats))
+        if n_clusters < self.num_atoms:
+            print(f"[Layer {layer}] Only {len(feats)} unique points, using {n_clusters} clusters instead of {self.num_atoms}")
 
-        step_key = f"step_{layer}"
-        if not hasattr(self, step_key):
-            setattr(self, step_key, 0)
-        setattr(self, step_key, getattr(self, step_key) + 1)
-        warmup = getattr(self, step_key) <= self.warmup_steps
+        # KMeans 聚类
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(feats)
+        centers = torch.tensor(kmeans.cluster_centers_.T, dtype=torch.float32, device=self.device)  # [C, K]
 
-        B = feats.shape[0]
-        gap_feats = feats.mean(dim=(2, 3))  # [B, C]
-        probs = F.softmax(logits, dim=1)
-        confs, preds = probs.max(dim=1)
-
-        for i in range(B):
-            label_i = labels[i].item()
-            pred_i = preds[i].item()
-            conf_i = confs[i].item()
-            feat_i = gap_feats[i].detach().cpu().numpy()
-
-            if warmup or (conf_i >= self.conf_thresh and label_i == pred_i):
-                self.class_buffers_layer[layer][label_i].append({'feat': feat_i, 'conf': conf_i})
-                if len(self.class_buffers_layer[layer][label_i]) > self.max_buffer_size:
-                    self.class_buffers_layer[layer][label_i].pop(0)
-
-        for c in range(self.num_classes):
-            buffer = self.class_buffers_layer[layer][c]
-            if len(buffer) >= self.num_atoms:
-                if not warmup:
-                    sorted_buffer = sorted(buffer, key=lambda x: x['conf'], reverse=True)
-                    buffer = sorted_buffer[:self.max_buffer_size]
-                    self.class_buffers_layer[layer][c] = buffer
-                buffer_np = np.stack([x['feat'] for x in buffer], axis=0)
-                kmeans = KMeans(n_clusters=self.num_atoms, random_state=0).fit(buffer_np)
-                new_dict = torch.tensor(kmeans.cluster_centers_.T, dtype=torch.float32, device=self.device)
-
-                if not self.initialized_classes_layer[layer][c] or (epoch % self.refresh_epoch == 0):
-                    self.class_dicts_layer[layer][c] = new_dict
-                    self.initialized_classes_layer[layer][c] = True
-                else:
-                    self.class_dicts_layer[layer][c] = self.momentum * self.class_dicts_layer[layer][c] + (1 - self.momentum) * new_dict
-
-                self.class_buffers_layer[layer][c].clear()
-
-        # gather valid dicts
-        unique_labels = torch.unique(labels)
-        valid_dicts = [self.class_dicts_layer[layer][c.item()] for c in unique_labels if self.initialized_classes_layer[layer][c.item()]]
-
-        if valid_dicts:
-            D_batch = torch.cat(valid_dicts, dim=1)
-            self.fallback_layer[layer] = D_batch
+        # Padding 以保持 [C, num_atoms] 输出
+        if n_clusters < self.num_atoms:
+            pad = torch.randn(C, self.num_atoms - n_clusters, device=self.device)
+            D_batch = torch.cat([centers, pad], dim=1)
         else:
-            D_batch = self.fallback_layer[layer]
+            D_batch = centers
 
-        return D_batch
+        # 初始化 dictionary_layer 字典
+        if not hasattr(self, "dictionary_layer"):
+            self.dictionary_layer = dict()
+
+        if layer not in self.dictionary_layer:
+            self.dictionary_layer[layer] = D_batch
+        else:
+            self.dictionary_layer[layer] = self.momentum * self.dictionary_layer[layer] + (1 - self.momentum) * D_batch
+
+        return self.dictionary_layer[layer]
 
     def attention_align_loss(self, F_T, F_S, D):
         """
@@ -241,18 +295,30 @@ class AttentionMapDistiller(Distiller):
         loss_ce = self.ce_loss_weight * F.cross_entropy(logits_student, target)
 
         # 更新字典 + 注意力对齐 loss
-        # D_momentum = self.update(t_feat)
-        D_momentum_3 = self.update(t_feat_3, target, logits_teacher,3, kwargs['epoch'])
+        # D_momentum_3 = self.update(t_feat_3, target, logits_teacher,3, kwargs['epoch'])
+        # loss_attn_3 = self.attn_loss_weight * self.attention_align_loss(t_feat_3.float(), s_feat_3.float(), D_momentum_3)
+
+        # D_momentum_2 = self.update(t_feat_2, target, logits_teacher,2, kwargs['epoch'])
+        # loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_momentum_2)
+
+        # D_momentum_1 = self.update(t_feat_1, target, logits_teacher,1, kwargs['epoch'])
+        # loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_momentum_1)
+
+        # D_momentum_0 = self.update(t_feat_0, target, logits_teacher,0, kwargs['epoch'])
+        # loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_momentum_0)
+
+        D_momentum_3 = self.update(t_feat_3,3)
         loss_attn_3 = self.attn_loss_weight * self.attention_align_loss(t_feat_3.float(), s_feat_3.float(), D_momentum_3)
 
-        D_momentum_2 = self.update(t_feat_2, target, logits_teacher,2, kwargs['epoch'])
+        D_momentum_2 = self.update(t_feat_2,2)
         loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_momentum_2)
 
-        D_momentum_1 = self.update(t_feat_1, target, logits_teacher,1, kwargs['epoch'])
+        D_momentum_1 = self.update(t_feat_1,1)
         loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_momentum_1)
 
-        D_momentum_0 = self.update(t_feat_0, target, logits_teacher,0, kwargs['epoch'])
+        D_momentum_0 = self.update(t_feat_0,0)
         loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_momentum_0)
+        
 
         decay_start_epoch = self.loss_cosine_decay_epoch
         if kwargs['epoch'] > decay_start_epoch:
@@ -272,6 +338,7 @@ class AttentionMapDistiller(Distiller):
         losses_dict = {
             "loss_ce": loss_ce,
             "loss_kd": loss_attn,
+            "loss_wkd":loss_wkd_logit,
             # "loss_kd": total_loss,
         }
 
