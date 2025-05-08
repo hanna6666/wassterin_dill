@@ -215,16 +215,34 @@ class AttentionMapDistiller(Distiller):
             logits_student, feats_student = self.student(image)
             with torch.no_grad():
                 logits_teacher, feats_teacher = self.teacher(image)
-            t_feat = feats_teacher["preact_feats"][3]
-            s_feat = feats_student["preact_feats"][3]
+            t_feat_3 = feats_teacher["preact_feats"][3]
+            s_feat_3 = feats_student["preact_feats"][3]
+
+            t_feat_2 = feats_teacher["preact_feats"][2]
+            s_feat_2 = feats_student["preact_feats"][2]
+
+            t_feat_1 = feats_teacher["preact_feats"][1]
+            s_feat_1 = feats_student["preact_feats"][1]
+
+            t_feat_0 = feats_teacher["preact_feats"][0]
+            s_feat_0 = feats_student["preact_feats"][0]
 
         logits_student = logits_student.to(torch.float32)
         loss_ce = self.ce_loss_weight * F.cross_entropy(logits_student, target)
 
         # 更新字典 + 注意力对齐 loss
         # D_momentum = self.update(t_feat)
-        D_momentum = self.update(t_feat, target, logits_teacher, kwargs['epoch'])
-        loss_attn = self.attn_loss_weight * self.attention_align_loss(t_feat.float(), s_feat.float(), D_momentum)
+        D_momentum_3 = self.update(t_feat_3, target, logits_teacher, kwargs['epoch'])
+        loss_attn_3 = self.attn_loss_weight * self.attention_align_loss(t_feat_3.float(), s_feat_3.float(), D_momentum_3)
+
+        D_momentum_2 = self.update(t_feat_2, target, logits_teacher, kwargs['epoch'])
+        loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_momentum_2)
+
+        D_momentum_1 = self.update(t_feat_1, target, logits_teacher, kwargs['epoch'])
+        loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_momentum_1)
+
+        D_momentum_0 = self.update(t_feat_0, target, logits_teacher, kwargs['epoch'])
+        loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_momentum_0)
 
         decay_start_epoch = self.loss_cosine_decay_epoch
         if kwargs['epoch'] > decay_start_epoch:
@@ -237,12 +255,14 @@ class AttentionMapDistiller(Distiller):
             logits_teacher = logits_teacher.to(torch.float32)
             loss_wkd_logit = wkd_logit_loss_with_speration(logits_student, logits_teacher, target, self.temperature, self.wkd_logit_loss_weight_1, self.dist, self.sinkhorn_lambda, self.sinkhorn_iter)
 
-        total_loss = loss_attn + loss_wkd_logit
+        total_loss = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0 + loss_wkd_logit
+
+        loss_attn = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0
 
         losses_dict = {
             "loss_ce": loss_ce,
-            # "loss_kd": loss_attn,
-            "loss_kd": total_loss,
+            "loss_kd": loss_attn,
+            # "loss_kd": total_loss,
         }
 
         return logits_student, losses_dict
