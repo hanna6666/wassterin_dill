@@ -189,6 +189,9 @@ class AttentionMapDistiller(Distiller):
         else:
             D_batch = self.fallback
 
+        print(f" Dictionary D shape: {D_batch.shape}, from features: {feats.shape}")
+
+
         return D_batch
 
     def attention_align_loss(self, F_T, F_S, D):
