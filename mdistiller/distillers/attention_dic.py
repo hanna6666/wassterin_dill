@@ -60,7 +60,7 @@ def wkd_logit_loss_with_speration(logits_student, logits_teacher, gt_label, temp
 
 
 class AttentionMapDistiller(Distiller):
-    def __init__(self, student, teacher, cfg, max_buffer_size=3000,num_classes=100,warmup_steps=100, refresh_epoch=50,confidence_thresh=0.7,num_atoms=100, momentum=0.99, device='cuda'):
+    def __init__(self, student, teacher, cfg, max_buffer_size=3000,num_classes=100,warmup_steps=100, refresh_epoch=50,confidence_thresh=0.7,num_atoms=100, momentum=0.9, device='cuda'):
         super(AttentionMapDistiller, self).__init__(student, teacher)
         self.cfg = cfg
         self.num_atoms = num_atoms
@@ -216,6 +216,24 @@ class AttentionMapDistiller(Distiller):
     #       self.dictionary = self.momentum * self.dictionary + (1 - self.momentum) * D_batch
 
     #   return self.dictionary
+
+    def get_current_dict(self, layer, C):
+        """
+        Safely retrieve current dictionary for a given layer.
+        If missing, initialize and return fallback.
+        """
+        if not hasattr(self, "dictionary_layer"):
+            self.dictionary_layer = {}
+
+        if layer in self.dictionary_layer:
+            return self.dictionary_layer[layer]
+
+        # 若无 fallback，则初始化并返回 fallback
+        if layer not in self.fallback_layer or self.fallback_layer[layer].shape[0] != C:
+            self.fallback_layer[layer] = torch.randn(C, self.num_atoms, device=self.device)
+
+        return self.fallback_layer[layer]
+    
     def update(self, batch_feats, layer):
         """
         Args:
@@ -270,6 +288,7 @@ class AttentionMapDistiller(Distiller):
         A_S = torch.softmax(torch.matmul(D.T, F_S.T) / scale, dim=0)  # [K, B]
 
         loss_attn = F.mse_loss(A_S, A_T.detach())  # detach teacher
+        # loss_attn = F.kl_div(A_S.log(), A_T.detach(), reduction="batchmean")
         return loss_attn
 
     def forward_train(self, image, target, **kwargs):
@@ -304,18 +323,26 @@ class AttentionMapDistiller(Distiller):
 
         # D_momentum_0 = self.update(t_feat_0, target, logits_teacher,0, kwargs['epoch'])
         # loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_momentum_0)
+        if kwargs['epoch'] != 1:
+            D_t_3 = self.get_current_dict(3)
+            loss_attn_3 = self.attn_loss_weight * self.attention_align_loss(t_feat_3.float(), s_feat_3.float(), D_t_3)
+            self.update(t_feat_3, 3)
 
-        D_momentum_3 = self.update(t_feat_3,3)
-        loss_attn_3 = self.attn_loss_weight * self.attention_align_loss(t_feat_3.float(), s_feat_3.float(), D_momentum_3)
+            D_t_2 = self.get_current_dict(2)
+            loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_t_2)
+            self.update(t_feat_2, 2)
 
-        D_momentum_2 = self.update(t_feat_2,2)
-        loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_momentum_2)
+            D_t_1 = self.get_current_dict(1)
+            loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_t_1)
+            self.update(t_feat_1, 1)
 
-        D_momentum_1 = self.update(t_feat_1,1)
-        loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_momentum_1)
+            D_t_0 = self.get_current_dict(0)
+            loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_t_0)
+            self.update(t_feat_1, 1)
 
-        D_momentum_0 = self.update(t_feat_0,0)
-        loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_momentum_0)
+            loss_attn = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0
+        else:
+            loss_attn = 0
         
 
         decay_start_epoch = self.loss_cosine_decay_epoch
@@ -330,8 +357,6 @@ class AttentionMapDistiller(Distiller):
             loss_wkd_logit = wkd_logit_loss_with_speration(logits_student, logits_teacher, target, self.temperature, self.wkd_logit_loss_weight_1, self.dist, self.sinkhorn_lambda, self.sinkhorn_iter)
 
         total_loss = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0 + loss_wkd_logit
-
-        loss_attn = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0
 
         losses_dict = {
             "loss_ce": loss_ce,
