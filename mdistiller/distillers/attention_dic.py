@@ -338,11 +338,11 @@ class AttentionMapDistiller(Distiller):
 
             D_t_0 = self.get_current_dict(0)
             loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_t_0)
-            self.update(t_feat_1, 1)
+            self.update(t_feat_0, 0)
 
             loss_attn = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0
         else:
-            loss_attn = 0
+            loss_attn = torch.tensor(0.0, device=self.device)
         
 
         decay_start_epoch = self.loss_cosine_decay_epoch
