@@ -230,8 +230,6 @@ class AttentionMapDistiller(Distiller):
         # 去除重复样本
         feats = np.unique(feats, axis=0)
         n_clusters = min(self.num_atoms, len(feats))
-        if n_clusters < self.num_atoms:
-            print(f"[Layer {layer}] Only {len(feats)} unique points, using {n_clusters} clusters instead of {self.num_atoms}")
 
         # KMeans 聚类
         kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(feats)
