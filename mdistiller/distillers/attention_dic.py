@@ -250,6 +250,7 @@ class AttentionMapDistiller(Distiller):
         feats = np.unique(feats, axis=0)
         n_seen = len(self.seen_classes)
         n_clusters = min(self.num_atoms, n_seen)
+        print(n_clusters,len(feats))
         n_clusters = max(1, n_clusters)
 
         # KMeans 聚类
