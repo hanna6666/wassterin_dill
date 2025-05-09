@@ -82,6 +82,10 @@ class AttentionMapDistiller(Distiller):
         self.max_buffer_size = max_buffer_size
         self.fallback_layer = dict()
         self.seen_classes = set()
+        self.fixed_dict_3 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict.pt").to(device)
+        self.fixed_dict_2 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict.pt").to(device)
+        self.fixed_dict_1 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict.pt").to(device)
+        self.fixed_dict_0 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict.pt").to(device)
 
         self.enable_wkdl = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT > 0
         if self.enable_wkdl:
@@ -328,30 +332,43 @@ class AttentionMapDistiller(Distiller):
 
         # D_momentum_0 = self.update(t_feat_0, target, logits_teacher,0, kwargs['epoch'])
         # loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_momentum_0)
-        if kwargs['epoch'] != 1:
-            B, C_3, H, W = t_feat_3.shape
-            D_t_3 = self.get_current_dict(3,C_3)
-            loss_attn_3 = self.attn_loss_weight * self.attention_align_loss(t_feat_3.float(), s_feat_3.float(), D_t_3,3)
-            self.update(t_feat_3, 3)
 
-            B, C_2, H, W = t_feat_2.shape
-            D_t_2 = self.get_current_dict(2,C_2)
-            loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_t_2,2)
-            self.update(t_feat_2, 2)
+        #更新字典momentum loss
+        # if kwargs['epoch'] != 1:
+        #     B, C_3, H, W = t_feat_3.shape
+        #     D_t_3 = self.get_current_dict(3,C_3)
+        #     loss_attn_3 = self.attn_loss_weight * self.attention_align_loss(t_feat_3.float(), s_feat_3.float(), D_t_3,3)
+        #     self.update(t_feat_3, 3)
 
-            B, C_1, H, W = t_feat_1.shape
-            D_t_1 = self.get_current_dict(1,C_1)
-            loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_t_1,1)
-            self.update(t_feat_1, 1)
+        #     B, C_2, H, W = t_feat_2.shape
+        #     D_t_2 = self.get_current_dict(2,C_2)
+        #     loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_t_2,2)
+        #     self.update(t_feat_2, 2)
 
-            B, C_0, H, W = t_feat_0.shape
-            D_t_0 = self.get_current_dict(0,C_0)
-            loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_t_0,0)
-            self.update(t_feat_0, 0)
+        #     B, C_1, H, W = t_feat_1.shape
+        #     D_t_1 = self.get_current_dict(1,C_1)
+        #     loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_t_1,1)
+        #     self.update(t_feat_1, 1)
 
-            loss_attn = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0
-        else:
-            loss_attn = torch.tensor(0.0, device=self.device)
+        #     B, C_0, H, W = t_feat_0.shape
+        #     D_t_0 = self.get_current_dict(0,C_0)
+        #     loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_t_0,0)
+        #     self.update(t_feat_0, 0)
+
+        #     loss_attn = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0
+        # else:
+        #     loss_attn = torch.tensor(0.0, device=self.device)
+
+        #固定字典计算loss方式，每类选3个
+        D_3 = self.fixed_dict_3  # [C, 300]
+        D_2 = self.fixed_dict_2  # [C, 300]
+        D_1 = self.fixed_dict_1  # [C, 300]
+        D_0 = self.fixed_dict_0  # [C, 300]
+        loss_attn_3 = self.attn_loss_weight * self.attention_align_loss(t_feat_3.float(), s_feat_3.float(), D_3,3)
+        loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_2,2)
+        loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_1,1)
+        loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_0,0)
+        loss_attn = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0
         
 
         decay_start_epoch = self.loss_cosine_decay_epoch
