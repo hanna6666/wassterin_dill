@@ -274,8 +274,6 @@ class AttentionMapDistiller(Distiller):
 
         return self.dictionary_layer[layer]
     
-    def compute_sparsity(self, A, threshold=0.01):
-        return (A < threshold).float().mean().item()
 
     def attention_align_loss(self, F_T, F_S, D,layer):
         """
@@ -292,10 +290,6 @@ class AttentionMapDistiller(Distiller):
         # D.T: [K, C], F.T: [C, B] → [K, B]
         A_T = torch.softmax(torch.matmul(D.T, F_T.T) / scale, dim=0)  # [K, B]
         A_S = torch.softmax(torch.matmul(D.T, F_S.T) / scale, dim=0)  # [K, B]
-        
-        A_T_SPARSE = self.compute_sparsity(A_T)
-        A_T_SPARSE = self.compute_sparsity(A_S)
-        print(A_T_SPARSE,A_T_SPARSE,layer)
 
         loss_attn = F.mse_loss(A_S, A_T.detach())  # detach teacher
         # loss_attn = F.kl_div(A_S.log(), A_T.detach(), reduction="batchmean")
