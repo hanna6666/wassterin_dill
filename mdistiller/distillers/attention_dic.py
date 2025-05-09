@@ -81,6 +81,7 @@ class AttentionMapDistiller(Distiller):
         self.num_classes = num_classes
         self.max_buffer_size = max_buffer_size
         self.fallback_layer = dict()
+        self.seen_classes = set()
 
         self.enable_wkdl = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT > 0
         if self.enable_wkdl:
@@ -247,7 +248,9 @@ class AttentionMapDistiller(Distiller):
 
         # 去除重复样本
         feats = np.unique(feats, axis=0)
-        n_clusters = min(self.num_atoms, len(feats))
+        n_seen = len(self.seen_classes)
+        n_clusters = min(self.num_atoms, n_seen)
+        n_clusters = max(64, n_clusters)
 
         # KMeans 聚类
         kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(feats)
@@ -294,6 +297,7 @@ class AttentionMapDistiller(Distiller):
     def forward_train(self, image, target, **kwargs):
         with torch.cuda.amp.autocast():
             logits_student, feats_student = self.student(image)
+            self.seen_classes.update(target.detach().cpu().tolist())
             with torch.no_grad():
                 logits_teacher, feats_teacher = self.teacher(image)
             t_feat_3 = feats_teacher["preact_feats"][3]
