@@ -324,19 +324,23 @@ class AttentionMapDistiller(Distiller):
         # D_momentum_0 = self.update(t_feat_0, target, logits_teacher,0, kwargs['epoch'])
         # loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_momentum_0)
         if kwargs['epoch'] != 1:
-            D_t_3 = self.get_current_dict(3)
+            B, C_3, H, W = t_feat_3.shape
+            D_t_3 = self.get_current_dict(3,C_3)
             loss_attn_3 = self.attn_loss_weight * self.attention_align_loss(t_feat_3.float(), s_feat_3.float(), D_t_3)
             self.update(t_feat_3, 3)
 
-            D_t_2 = self.get_current_dict(2)
+            B, C_2, H, W = t_feat_2.shape
+            D_t_2 = self.get_current_dict(2,C_2)
             loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_t_2)
             self.update(t_feat_2, 2)
 
-            D_t_1 = self.get_current_dict(1)
+            B, C_1, H, W = t_feat_1.shape
+            D_t_1 = self.get_current_dict(1,C_1)
             loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_t_1)
             self.update(t_feat_1, 1)
 
-            D_t_0 = self.get_current_dict(0)
+            B, C_0, H, W = t_feat_1.shape
+            D_t_0 = self.get_current_dict(0,C_0)
             loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_t_0)
             self.update(t_feat_0, 0)
 
