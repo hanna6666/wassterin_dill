@@ -250,18 +250,18 @@ class AttentionMapDistiller(Distiller):
         feats = np.unique(feats, axis=0)
         n_seen = len(self.seen_classes)
         n_clusters = min(self.num_atoms, n_seen)
-        n_clusters = max(64, n_clusters)
+        n_clusters = max(1, n_clusters)
 
         # KMeans 聚类
         kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(feats)
         centers = torch.tensor(kmeans.cluster_centers_.T, dtype=torch.float32, device=self.device)  # [C, K]
 
         # Padding 以保持 [C, num_atoms] 输出
-        if n_clusters < self.num_atoms:
-            pad = torch.randn(C, self.num_atoms - n_clusters, device=self.device)
-            D_batch = torch.cat([centers, pad], dim=1)
-        else:
-            D_batch = centers
+        # if n_clusters < self.num_atoms:
+        #     pad = torch.randn(C, self.num_atoms - n_clusters, device=self.device)
+        #     D_batch = torch.cat([centers, pad], dim=1)
+        # else:
+        D_batch = centers
 
         # 初始化 dictionary_layer 字典
         if not hasattr(self, "dictionary_layer"):
