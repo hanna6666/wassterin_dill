@@ -250,7 +250,6 @@ class AttentionMapDistiller(Distiller):
         feats = np.unique(feats, axis=0)
         n_seen = len(self.seen_classes)
         n_clusters = min(self.num_atoms, n_seen)
-        print(n_clusters,len(feats),n_seen)
         n_clusters = max(1, n_clusters)
 
         # KMeans 聚类
@@ -298,7 +297,6 @@ class AttentionMapDistiller(Distiller):
     def forward_train(self, image, target, **kwargs):
         with torch.cuda.amp.autocast():
             logits_student, feats_student = self.student(image)
-            self.seen_classes.update(target.detach().cpu().tolist())
             with torch.no_grad():
                 logits_teacher, feats_teacher = self.teacher(image)
             t_feat_3 = feats_teacher["preact_feats"][3]
@@ -313,6 +311,7 @@ class AttentionMapDistiller(Distiller):
             t_feat_0 = feats_teacher["preact_feats"][0]
             s_feat_0 = feats_student["preact_feats"][0]
 
+        self.seen_classes.update(target.detach().cpu().tolist())
         logits_student = logits_student.to(torch.float32)
         loss_ce = self.ce_loss_weight * F.cross_entropy(logits_student, target)
 
