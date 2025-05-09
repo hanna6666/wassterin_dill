@@ -64,7 +64,7 @@ if __name__ == "__main__":
     num_atoms_per_class = 3
     max_batches = 500
 
-    save_path = f"/kaggle/working/wassterin_dill/dicts/{teacher_name}_fixed_dict.pt"
+    save_path = f"/kaggle/working/wassterin_dill/dicts/{teacher_name}_fixed_dict_2.pt"
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     transform = get_cifar100_train_transform()

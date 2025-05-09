@@ -82,10 +82,10 @@ class AttentionMapDistiller(Distiller):
         self.max_buffer_size = max_buffer_size
         self.fallback_layer = dict()
         self.seen_classes = set()
-        self.fixed_dict_3 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict.pt").to(device)
-        self.fixed_dict_2 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict.pt").to(device)
-        self.fixed_dict_1 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict.pt").to(device)
-        self.fixed_dict_0 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict.pt").to(device)
+        self.fixed_dict_3 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict_3.pt").to(device)
+        self.fixed_dict_2 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict_2.pt").to(device)
+        self.fixed_dict_1 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict_1.pt").to(device)
+        self.fixed_dict_0 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet34x4_fixed_dict_0.pt").to(device)
 
         self.enable_wkdl = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT > 0
         if self.enable_wkdl:

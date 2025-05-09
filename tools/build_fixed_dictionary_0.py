@@ -60,11 +60,11 @@ if __name__ == "__main__":
 
     teacher_name = cfg.DISTILLER.TEACHER
     num_classes = 100
-    layer_id = 2
+    layer_id = 0
     num_atoms_per_class = 3
     max_batches = 500
 
-    save_path = f"/kaggle/working/wassterin_dill/dicts/{teacher_name}_fixed_dict.pt"
+    save_path = f"/kaggle/working/wassterin_dill/dicts/{teacher_name}_fixed_dict_0.pt"
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     transform = get_cifar100_train_transform()
