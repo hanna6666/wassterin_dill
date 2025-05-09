@@ -339,7 +339,7 @@ class AttentionMapDistiller(Distiller):
             loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_t_1)
             self.update(t_feat_1, 1)
 
-            B, C_0, H, W = t_feat_1.shape
+            B, C_0, H, W = t_feat_0.shape
             D_t_0 = self.get_current_dict(0,C_0)
             loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_t_0)
             self.update(t_feat_0, 0)
