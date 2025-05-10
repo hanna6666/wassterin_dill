@@ -220,14 +220,19 @@ class WKD(Distiller):
 
       # WD for feature distillation
       if self.enable_wkdf:
-          f_t = feats_teacher["feats"][self.hint_layer].to(torch.float32)
-          f_s = feats_student["feats"][self.hint_layer].to(torch.float32)
-          f_s = self.conv_reg(f_s)
+        #   f_t = feats_teacher["feats"][self.hint_layer].to(torch.float32)
+        #   f_s = feats_student["feats"][self.hint_layer].to(torch.float32)
+        #   f_s = self.conv_reg(f_s)
           
-          mean_loss, cov_loss = wkd_feature_loss(f_s, f_t, self.eps, grid=self.spatial_grid)
+        #   mean_loss, cov_loss = wkd_feature_loss(f_s, f_t, self.eps, grid=self.spatial_grid)
 
-          loss_wkd_feat = self.wkd_feature_mean_cov_ratio * mean_loss + cov_loss
-          loss_wkd += self.wkd_feature_loss_weight_1 * loss_wkd_feat
+        #   loss_wkd_feat = self.wkd_feature_mean_cov_ratio * mean_loss + cov_loss
+        #   loss_wkd += self.wkd_feature_loss_weight_1 * loss_wkd_feat
+        f_s = self.conv_reg(feats_student["feats"][self.hint_layer])
+        loss_feat = self.wkd_feature_loss_weight_1 * F.mse_loss(
+            f_s, feats_teacher["feats"][self.hint_layer]
+        )
+        loss_wkd += loss_feat
 
 
       losses_dict = {
