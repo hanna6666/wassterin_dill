@@ -85,7 +85,7 @@ class AttentionMapDistiller(Distiller):
         self.fixed_dict_3 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet32x4_fixed_dict_3.pt").to(device)
         self.fixed_dict_2 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet32x4_fixed_dict_2.pt").to(device)
         self.fixed_dict_1 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet32x4_fixed_dict_1.pt").to(device)
-        self.fixed_dict_0 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet32112x4_fixed_dict_0.pt").to(device)
+        self.fixed_dict_0 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet32x4_fixed_dict_0.pt").to(device)
 
         self.enable_wkdl = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT > 0
         if self.enable_wkdl:
