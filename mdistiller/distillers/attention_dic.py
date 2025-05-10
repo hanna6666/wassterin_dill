@@ -85,7 +85,7 @@ class AttentionMapDistiller(Distiller):
         self.fixed_dict_3 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet32x4_fixed_dict_3.pt").to(device)
         self.fixed_dict_2 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet32x4_fixed_dict_2.pt").to(device)
         self.fixed_dict_1 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet32x4_fixed_dict_1.pt").to(device)
-        self.fixed_dict_0 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet32x4_fixed_dict_0.pt").to(device)
+        self.fixed_dict_0 = torch.load("/kaggle/working/wassterin_dill/dicts/resnet32112x4_fixed_dict_0.pt").to(device)
 
         self.enable_wkdl = cfg.WKD.LOSS.WKD_LOGIT_WEIGHT > 0
         if self.enable_wkdl:
@@ -368,8 +368,8 @@ class AttentionMapDistiller(Distiller):
         loss_attn_2 = self.attn_loss_weight * self.attention_align_loss(t_feat_2.float(), s_feat_2.float(), D_2,2)
         loss_attn_1 = self.attn_loss_weight * self.attention_align_loss(t_feat_1.float(), s_feat_1.float(), D_1,1)
         loss_attn_0 = self.attn_loss_weight * self.attention_align_loss(t_feat_0.float(), s_feat_0.float(), D_0,0)
-        loss_attn = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0
-        
+        # loss_attn = loss_attn_3 + loss_attn_2 +  loss_attn_1 + loss_attn_0
+        loss_attn = loss_attn_3
 
         decay_start_epoch = self.loss_cosine_decay_epoch
         if kwargs['epoch'] > decay_start_epoch:
