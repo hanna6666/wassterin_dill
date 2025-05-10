@@ -228,10 +228,10 @@ class WKD(Distiller):
 
         #   loss_wkd_feat = self.wkd_feature_mean_cov_ratio * mean_loss + cov_loss
         #   loss_wkd += self.wkd_feature_loss_weight_1 * loss_wkd_feat
-        f_s = self.conv_reg(feats_student["feats"][self.hint_layer])
-        loss_feat = self.wkd_feature_loss_weight_1 * F.mse_loss(
-            f_s, feats_teacher["feats"][self.hint_layer]
-        )
+        f_t = feats_teacher["feats"][self.hint_layer].to(torch.float32)
+        f_s = feats_student["feats"][self.hint_layer].to(torch.float32)
+        f_s = self.conv_reg(f_s)
+        loss_feat = self.wkd_feature_loss_weight_1 * F.mse_loss(f_s, f_t)
         loss_wkd += loss_feat
 
 
